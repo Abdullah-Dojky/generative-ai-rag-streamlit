@@ -4,7 +4,7 @@ import numpy as np
 import faiss
 from groq import Groq
 from sentence_transformers import SentenceTransformer
-from PyPDF2 import PdfReader
+import pypdfium2 as pdfium
 from docx import Document
 
 st.set_page_config(page_title="Document RAG", page_icon="📚")
@@ -50,7 +50,14 @@ if st.button("Build knowledge base"):
     for f in files or []:
         f.seek(0)
         if f.name.lower().endswith(".pdf"):
-            text = "\n".join(p.extract_text() or "" for p in PdfReader(f).pages)
+            pages = []
+            with st.spinner("Reading PDF pages..."):
+                with pdfium.PdfDocument(f.getvalue()) as pdf:
+                    for page in pdf:
+                        with page:
+                            with page.get_textpage() as textpage:
+                                pages.append(textpage.get_text_range())
+            text = "\n".join(pages)
         elif f.name.lower().endswith(".docx"):
             text = "\n".join(p.text for p in Document(f).paragraphs)
         else:
