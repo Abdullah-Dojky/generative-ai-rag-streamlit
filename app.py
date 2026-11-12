@@ -54,9 +54,12 @@ if st.button("Build knowledge base"):
             with st.spinner("Reading PDF pages..."):
                 with pdfium.PdfDocument(f.getvalue()) as pdf:
                     for page in pdf:
-                        with page:
-                            with page.get_textpage() as textpage:
-                                pages.append(textpage.get_text_range())
+                        textpage = page.get_textpage()
+                        try:
+                            pages.append(textpage.get_text_range())
+                        finally:
+                            textpage.close()
+                            page.close()
             text = "\n".join(pages)
         elif f.name.lower().endswith(".docx"):
             text = "\n".join(p.text for p in Document(f).paragraphs)
