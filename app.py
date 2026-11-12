@@ -79,10 +79,10 @@ if st.button("Build knowledge base"):
 if "chunks" in st.session_state:
     st.info(f"Knowledge base: {len(st.session_state.chunks)} chunks. Sources: {', '.join(dict.fromkeys(name for name, _ in st.session_state.chunks))}")
 question = st.text_input("Ask a question about your documents", key="question")
-if st.button("Answer"):
-    if not key:
-        st.error("The app administrator must configure GROQ_API_KEY in the hosting service secrets.")
-    elif "index" not in st.session_state:
+preview = st.button("Preview retrieved sources")
+answer_requested = st.button("Answer")
+if preview or answer_requested:
+    if "index" not in st.session_state:
         st.error("Build the knowledge base first.")
     elif not question.strip():
         st.error("Enter a question.")
@@ -92,6 +92,15 @@ if st.button("Answer"):
         scores, ids = st.session_state.index.search(q, min(k, len(chunks)))
         hits = [(chunks[i], float(s)) for s, i in zip(scores[0], ids[0]) if i >= 0]
         context = "\n\n".join(f"[{n}] {name}\n{text}" for n, ((name, text), _) in enumerate(hits, 1))
+        with st.expander("Sources (retrieved chunks)", expanded=True):
+            for n, ((name, text), score) in enumerate(hits, 1):
+                st.markdown(f"**[{n}] {name}** · similarity {score:.3f}")
+                st.write(text)
+        if not answer_requested:
+            st.stop()
+        if not key:
+            st.error("The app administrator must configure GROQ_API_KEY in the hosting service secrets.")
+            st.stop()
         try:
             with Groq(api_key=key.strip()) as client:
                 response = client.chat.completions.create(model=model, messages=[
@@ -99,9 +108,5 @@ if st.button("Answer"):
                     {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}])
             st.subheader("Answer")
             st.write(response.choices[0].message.content)
-            with st.expander("Sources (retrieved chunks)"):
-                for n, ((name, text), score) in enumerate(hits, 1):
-                    st.markdown(f"**[{n}] {name}** · similarity {score:.3f}")
-                    st.write(text)
         except Exception:
             st.error("Request failed. Check your Groq API key and usage limits.")
